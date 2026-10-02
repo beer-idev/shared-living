@@ -1,0 +1,14 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { signInAction } from "@/app/actions/auth";
+import { StatusMessage } from "@/components/status-message";
+import { SubmitButton } from "@/components/submit-button";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+
+export const metadata: Metadata = { title: "Log in" };
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
+  const { error, next } = await searchParams;
+  return <div className="auth-form"><p className="eyebrow">Welcome home</p><h2>Log in</h2><p>See what’s happening around your house.</p><StatusMessage error={error} />{!isSupabaseConfigured && <StatusMessage error="Supabase credentials are not configured yet. Use Preview UI below or complete setup." />}<form action={signInAction} className="form-stack">{next && <input type="hidden" name="next" value={next} />}<label>Email<input name="email" type="email" defaultValue="napat@example.com" autoComplete="email" required /></label><label>Password<input name="password" type="password" defaultValue="sharedliving123" autoComplete="current-password" minLength={8} required /></label><SubmitButton className="button button--primary button--wide" pendingLabel="Logging in…">Log in <ArrowRight size={17} /></SubmitButton></form><p className="auth-alt">New to Shared Living? <Link href="/register">Create an account</Link></p>{!isSupabaseConfigured && <Link className="button button--secondary button--wide" href="/dashboard">Preview the connected UI</Link>}<Link className="setup-link" href="/setup">Supabase setup instructions</Link></div>;
+}

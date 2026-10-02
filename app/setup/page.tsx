@@ -1,0 +1,9 @@
+import type { Metadata } from "next";
+import { CheckCircle2, Copy, Database, Terminal } from "lucide-react";
+import Link from "next/link";
+
+export const metadata: Metadata = { title: "Supabase setup" };
+
+export default function SetupPage() {
+  return <main className="setup-page"><Link href="/dashboard" className="back-link">← Back to app</Link><header><span><Database size={25} /></span><p className="eyebrow">Production setup</p><h1>Connect Shared Living to Supabase</h1><p>The application, migrations, Row Level Security, storage policies and seed data are ready. Connect a project to turn off Preview mode.</p></header><ol className="setup-steps"><li><span>1</span><div><h2>Create or choose a Supabase project</h2><p>Copy the Project URL and Publishable key from the project Connect dialog.</p></div></li><li><span>2</span><div><h2>Add local environment variables</h2><pre><code>NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co{"\n"}NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...</code></pre></div></li><li><span>3</span><div><h2>Link and push the database</h2><pre><code>npx supabase login{"\n"}npx supabase link --project-ref YOUR_PROJECT_REF{"\n"}npx supabase db push</code></pre></div></li><li><span>4</span><div><h2>Load starter records</h2><p>For local development, <code>supabase db reset</code> applies <code>supabase/seed.sql</code>. For a remote development project, run the seed file once in the SQL Editor after the migration.</p></div></li></ol><div className="setup-ready"><CheckCircle2 size={22} /><div><strong>What is already wired</strong><p>Cookie-based auth, houses, members, bills and equal splits, payment tracking, chores, completion photo uploads, appreciation bonuses, House Harmony, celebrations and notifications.</p></div></div><Link href="/login" className="button button--primary"><Terminal size={18} /> Open login</Link><button className="visually-hidden"><Copy /> Copy</button></main>;
+}
