@@ -5,7 +5,7 @@ import type { AppContext } from "@/lib/types";
 import { harmonyLevel } from "@/lib/format";
 import { Avatar } from "./avatar";
 import { Brand } from "./brand";
-import { DesktopNav, MobileNav } from "./nav-links";
+import { DesktopNav, MobileMenu, MobileNav } from "./nav-links";
 
 export function AppShell({ context, unread, children }: { context: AppContext; unread: number; children: React.ReactNode }) {
   const harmony = harmonyLevel(context.house.harmony_score);
@@ -26,7 +26,7 @@ export function AppShell({ context, unread, children }: { context: AppContext; u
           </div>
         </div>
       </aside>
-      <header className="mobile-header"><Brand compact /><div className="mobile-header__actions"><Link href="/notifications" className="notification-button"><Bell size={19} />{unread > 0 && <span>{unread}</span>}</Link><Link href="/profile" aria-label="Open profile"><Avatar profile={context.profile} size="sm" /></Link></div></header>
+      <header className="mobile-header"><Brand compact /><div className="mobile-header__actions"><MobileMenu unread={unread} /><Link href="/notifications" className="notification-button"><Bell size={19} />{unread > 0 && <span>{unread}</span>}</Link><Link href="/profile" aria-label="Open profile"><Avatar profile={context.profile} size="sm" /></Link></div></header>
       {context.preview && <div className="setup-ribbon"><strong>Preview mode</strong><span>Connect Supabase to enable saving, authentication and uploads.</span><Link href="/setup">Set up</Link></div>}
       <main id="main-content" className={`main-content ${context.preview ? "main-content--preview" : ""}`}>{children}</main>
       <MobileNav />

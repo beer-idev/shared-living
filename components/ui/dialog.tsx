@@ -18,7 +18,7 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.Content>, React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>>(({ className, children, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
-    <DialogPrimitive.Content ref={ref} className={cn("fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[20px] border border-[#dbe4e7] bg-[#f8fbfc] p-6 text-[#17291f] shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out", className)} {...props}>
+    <DialogPrimitive.Content ref={ref} className={cn("fixed left-1/2 top-1/2 z-50 grid min-w-0 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-x-hidden rounded-[20px] border border-[#dbe4e7] bg-[#f8fbfc] p-6 text-[#17291f] shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out", className)} {...props}>
       {children}
       <DialogPrimitive.Close className="absolute right-4 top-4 grid size-9 cursor-pointer place-items-center rounded-full p-0 text-[#718187] transition hover:bg-[#eaf1f1] hover:text-[#17291f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4cbd5b]/40">
         <X className="size-4" />

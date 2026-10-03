@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bell, CheckCircle2, Sparkles } from "lucide-react";
+import { Bell, CheckCircle2, Heart, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { createCelebrationAction } from "@/app/actions/house";
 import { CelebrationPlanner } from "@/components/celebration-planner";
@@ -7,24 +7,30 @@ import { HarmonyGrowthModal } from "@/components/harmony-growth-modal";
 import { HarmonyMilestonesModal } from "@/components/harmony-milestones-modal";
 import { StatusMessage } from "@/components/status-message";
 import { TreeIllustration } from "@/components/tree-illustration";
-import { getAppContext, getNotifications } from "@/lib/data";
-import { harmonyLevel } from "@/lib/format";
+import { getAppContext, getExpenses, getNotifications, getTasks } from "@/lib/data";
 
 export const metadata: Metadata = { title: "House Harmony" };
 
 const levels = [
-  { level: 1, name: "Needs Improvement", range: "0–20%" },
-  { level: 2, name: "Getting Better", range: "21–40%" },
-  { level: 3, name: "Comfortable Home", range: "41–60%" },
-  { level: 4, name: "Cozy Home", range: "61–80%" },
-  { level: 5, name: "Harmony Home", range: "81–100%" },
+  { level: 1, name: "Seed", range: "0+", threshold: 0, icon: "🌱" },
+  { level: 2, name: "Small Plant", range: "20+", threshold: 20, icon: "🌿" },
+  { level: 3, name: "Young Tree", range: "40+", threshold: 40, icon: "🌾" },
+  { level: 4, name: "Healthy Tree", range: "60+", threshold: 60, icon: "🌳" },
+  { level: 5, name: "Big Tree", range: "78+", threshold: 78, icon: "🌲" },
+  { level: 6, name: "Dream House", range: "92+", threshold: 92, icon: "🏡" },
 ];
 
 export default async function HarmonyPage({ searchParams }: { searchParams: Promise<{ error?: string; celebration?: string }> }) {
-  const [context, notifications, query] = await Promise.all([getAppContext(), getNotifications(), searchParams]);
-  const harmony = harmonyLevel(context.house.harmony_score);
+  const [context, notifications, tasks, expenses, query] = await Promise.all([getAppContext(), getNotifications(), getTasks(), getExpenses(), searchParams]);
+  const score = context.house.harmony_score;
+  const currentStage = [...levels].reverse().find((item) => score >= item.threshold) ?? levels[0];
+  const nextStage = levels.find((item) => item.threshold > score);
+  const pointsToNext = nextStage ? nextStage.threshold - score : 0;
   const owner = context.members.some((member) => member.user_id === context.userId && member.role === "owner");
   const unread = notifications.filter((notification) => !notification.read_at).length;
+  const completedTasks = tasks.filter((task) => task.status === "completed").length;
+  const settledBills = expenses.filter((expense) => expense.splits?.length && expense.splits.every((split) => split.is_paid)).length;
+  const topContributors = [...context.members].sort((a, b) => b.points - a.points).slice(0, 3);
 
   return <div className="harmony-page">
     <header className="harmony-page__header">
@@ -34,31 +40,32 @@ export default async function HarmonyPage({ searchParams }: { searchParams: Prom
     <StatusMessage error={query.error} success={query.celebration ? "Celebration created. Your housemates will be notified." : undefined} />
 
     <section className="harmony-figma-hero">
-      <div className="harmony-figma-hero__tree"><TreeIllustration /></div>
+      <div className="harmony-figma-hero__tree"><TreeIllustration /><span>{currentStage.name}</span></div>
       <div className="harmony-figma-hero__content">
-        <p>Level {harmony.level} · {harmony.name}</p>
-        <h2>{context.house.harmony_score} / 100 <span>harmony</span></h2>
-        <p>You reached the {harmony.level === 5 ? "highest" : `level ${harmony.level}`} level. Keep looking after your home.</p>
-        <div className="harmony-progress"><span style={{ width: `${context.house.harmony_score}%` }} /></div>
-        <div className="harmony-hero-actions"><HarmonyMilestonesModal levels={levels} currentLevel={harmony.level} /><HarmonyGrowthModal score={context.house.harmony_score} levelName={harmony.name} /></div>
+        <span className="harmony-status-badge">{score >= 60 ? "Thriving house" : "Growing house"}</span>
+        <h2><strong>{score}</strong><span>/100 <b>harmony</b></span></h2>
+        <p>Level {currentStage.level} · {currentStage.name}{nextStage ? ` — ${pointsToNext} points to ${nextStage.name}` : " — You reached the top level"}</p>
+        <div className="harmony-progress"><span style={{ width: `${score}%` }} /></div>
+        <div className="harmony-hero-actions"><HarmonyMilestonesModal levels={levels} currentLevel={currentStage.level} triggerLabel="Level up house" /><HarmonyGrowthModal score={score} levelName={currentStage.name} /></div>
       </div>
     </section>
 
     <section className="harmony-levels" id="milestones" aria-label="Harmony levels">
-      {levels.map((item) => <article className={item.level === harmony.level ? "is-current" : item.level < harmony.level ? "is-complete" : ""} key={item.level}><small>Level {item.level}</small><strong>{item.name}</strong><span>{item.range}</span></article>)}
+      {levels.map((item) => <article className={item.level === currentStage.level ? "is-current" : item.level < currentStage.level ? "is-complete" : ""} key={item.level}><span className="harmony-level-icon" aria-hidden="true">{item.icon}</span><strong>{item.name}</strong><small>{item.range}</small></article>)}
     </section>
 
     <div className="harmony-bottom">
       <section className="harmony-celebration" id="celebration">
         <h2>House celebration</h2>
-        <p>Celebrate a level up with something you all enjoy.</p>
+        <p>As the owner you can spend harmony on a reward — or keep growing the tree.</p>
         {owner ? <CelebrationPlanner action={createCelebrationAction} /> : <p className="celebration-note">The house owner can schedule the next celebration.</p>}
+        <div className="harmony-continue"><HarmonyGrowthModal score={score} levelName={currentStage.name} /></div>
       </section>
       <aside className="harmony-scoring">
         <h2>What grows the tree</h2>
-        <dl><div><dt><CheckCircle2 size={15} /> Task completed</dt><dd>+10</dd></div><div><dt><Sparkles size={15} /> First appreciation</dt><dd>+5</dd></div></dl>
-        <p>System Score is the main score. Community Bonus is awarded once per task.</p>
-        <strong>Celebrating never spends or resets harmony.</strong>
+        <dl><div><dt><CheckCircle2 size={15} /> {completedTasks} tasks completed</dt><dd>+3 each</dd></div><div><dt><ReceiptText size={15} /> {settledBills} bills settled</dt><dd>+1 each</dd></div><div><dt><Heart size={15} /> Reactions given</dt><dd>+1 each</dd></div></dl>
+        <h3>Top contributors</h3>
+        <ol className="harmony-contributors">{topContributors.map((member, index) => <li key={member.user_id}><span aria-hidden="true">{index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}</span><strong>{member.profile.display_name}</strong><b>{member.points}</b></li>)}</ol>
       </aside>
     </div>
   </div>;

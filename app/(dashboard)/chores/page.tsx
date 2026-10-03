@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { CalendarDays, CheckCircle2, ClipboardCheck, Plus } from "lucide-react";
+import { CalendarDays, CheckCircle2, ClipboardCheck, Hand, RotateCw, Shuffle } from "lucide-react";
 import { completeTaskAction } from "@/app/actions/tasks";
 import { Avatar } from "@/components/avatar";
+import { CreateTaskDialog } from "@/components/create-task-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusMessage } from "@/components/status-message";
@@ -29,7 +30,23 @@ function taskDate(value: string) {
 function TaskCard({ task, index }: { task: Task; index: number }) {
   const fallback = { id: "", display_name: "?", avatar_path: null, task_reminders: true, bill_alerts: true, house_activity: true };
   const completed = task.status === "completed";
-  return <TaskDetailModal task={task} index={index} completeAction={completeTaskAction} canComplete={!completed}><article className={completed ? "is-completed" : ""}><b className="task-points">+{taskPoints(task.title)}</b><h3>{task.title}</h3><p>{task.description}</p><div><Avatar profile={task.assignee ?? fallback} index={index} size="sm" /><span>{task.assignee?.display_name ?? "Unassigned"}</span><em>{task.assignment_type}</em></div><small>{taskDate(task.due_at)}</small>{completed && <div className="task-completed-strip"><CheckCircle2 size={14} /><span>Completed</span><b>3 reactions</b></div>}</article></TaskDetailModal>;
+  const AssignmentIcon = task.assignment_type === "rotation" ? RotateCw : task.assignment_type === "random" ? Shuffle : Hand;
+  return (
+    <TaskDetailModal task={task} index={index} completeAction={completeTaskAction} canComplete={!completed}>
+      <article className={`task-card${completed ? " is-completed" : ""}`}>
+        <b className="task-points">+{taskPoints(task.title)}</b>
+        <h3>{task.title}</h3>
+        <p>{task.description}</p>
+        <div className="task-card-meta">
+          <Avatar profile={task.assignee ?? fallback} index={index} size="sm" />
+          <span className="task-card-assignee">{task.assignee?.display_name ?? "Unassigned"}</span>
+          <em className="task-card-assignment"><AssignmentIcon size={11} aria-hidden="true" />{task.assignment_type}</em>
+          <time dateTime={task.due_at}>{taskDate(task.due_at)}</time>
+        </div>
+        {completed && <div className="task-completed-strip"><CheckCircle2 size={14} /><span>Completed</span><b>3 reactions</b></div>}
+      </article>
+    </TaskDetailModal>
+  );
 }
 
 export default async function ChoresPage({ searchParams }: { searchParams: Promise<{ error?: string; completed?: string; task?: string }> }) {
@@ -48,9 +65,8 @@ export default async function ChoresPage({ searchParams }: { searchParams: Promi
   const calendarCells = Array.from({ length: firstDay + daysInMonth }, (_, index) => index < firstDay ? null : index - firstDay + 1);
   const taskDays = new Set(tasks.map((task) => { const date = new Date(task.due_at); return date.getFullYear() === calendarYear && date.getMonth() === calendarMonth ? date.getDate() : -1; }));
   const leaderboard = [...context.members].sort((a, b) => b.points - a.points);
-
   return <div className="figma-tasks">
-    <PageHeader title="Tasks & Cleaning" description="Fair chores, happy house" action={{ href: "/chores/new", label: "New task", icon: Plus }} unread={notifications.filter((item) => !item.read_at).length} />
+    <PageHeader title="Tasks & Cleaning" description="Fair chores, happy house" actionSlot={<CreateTaskDialog members={context.members} currentUserId={context.userId} />} unread={notifications.filter((item) => !item.read_at).length} />
     <StatusMessage error={query.error} />
     {completedTask && <TaskDetailModal task={completedTask} completeAction={completeTaskAction} autoOpen={query.completed === "1"} showTrigger={false} successMode={query.completed === "1"} />}
     {tasks.length === 0 ? <EmptyState icon={ClipboardCheck} title="No tasks yet" description="Create your first task and choose how it should be assigned." action={{ href: "/chores/new", label: "Create task" }} /> : <div className="figma-task-layout">

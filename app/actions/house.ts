@@ -59,6 +59,31 @@ export async function updateProfileAction(formData: FormData) {
   redirect(`${returnTo}?saved=1`);
 }
 
+export async function updateAvatarAction(formData: FormData) {
+  if (!isSupabaseConfigured) redirect("/profile?error=Connect+Supabase+to+upload+a+profile+photo");
+  const avatar = formData.get("avatar");
+  if (!(avatar instanceof File) || avatar.size === 0) redirect("/profile?error=Choose+an+image+to+upload");
+  if (avatar.size > 5 * 1024 * 1024) redirect("/profile?error=The+profile+photo+must+be+smaller+than+5MB");
+  if (!["image/jpeg", "image/png", "image/webp"].includes(avatar.type)) redirect("/profile?error=Use+a+JPG%2C+PNG%2C+or+WebP+image");
+
+  const context = await getAppContext();
+  const extension = avatar.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${context.userId}/${crypto.randomUUID()}.${extension}`;
+  const supabase = await createClient();
+  const { error: uploadError } = await supabase.storage.from("profile-avatars").upload(path, avatar, { cacheControl: "3600", upsert: false });
+  if (uploadError) redirect(`/profile?error=${encodeURIComponent(uploadError.message)}`);
+
+  const previousPath = context.profile.avatar_path;
+  const { error } = await supabase.from("profiles").update({ avatar_path: path }).eq("id", context.userId);
+  if (error) {
+    await supabase.storage.from("profile-avatars").remove([path]);
+    redirect(`/profile?error=${encodeURIComponent(error.message)}`);
+  }
+  if (previousPath) await supabase.storage.from("profile-avatars").remove([previousPath]);
+  revalidatePath("/", "layout");
+  redirect("/profile?saved=photo");
+}
+
 export async function updateHouseAction(formData: FormData) {
   if (!isSupabaseConfigured) redirect("/settings?error=Connect+Supabase+to+save+changes");
   const schema = z.object({ houseName: z.string().min(2).max(80), currency: z.string().length(3) });

@@ -6,6 +6,15 @@ export function formatDate(value: string, options?: Intl.DateTimeFormatOptions) 
   return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", ...(options ?? { day: "numeric", month: "short", year: "numeric" }) }).format(new Date(value));
 }
 
+export function formatDateInput(value = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" })
+      .formatToParts(value)
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 export function formatTime(value: string) {
   return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(value));
 }
@@ -22,9 +31,10 @@ export function relativeTime(value: string) {
 }
 
 export function harmonyLevel(score: number) {
-  if (score <= 20) return { level: 1, name: "Needs Improvement" };
-  if (score <= 40) return { level: 2, name: "Getting Better" };
-  if (score <= 60) return { level: 3, name: "Comfortable Home" };
-  if (score <= 80) return { level: 4, name: "Cozy Home" };
-  return { level: 5, name: "Harmony Home" };
+  if (score >= 92) return { level: 6, name: "Dream House" };
+  if (score >= 78) return { level: 5, name: "Big Tree" };
+  if (score >= 60) return { level: 4, name: "Healthy Tree" };
+  if (score >= 40) return { level: 3, name: "Young Tree" };
+  if (score >= 20) return { level: 2, name: "Small Plant" };
+  return { level: 1, name: "Seed" };
 }
