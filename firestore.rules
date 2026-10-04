@@ -1,0 +1,472 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function memberPath(uid) {
+      return /databases/$(database)/documents/house_members/$(uid);
+    }
+
+    function housePath(houseId) {
+      return /databases/$(database)/documents/houses/$(houseId);
+    }
+
+    function isCurrentMember(uid) {
+      return signedIn() && exists(memberPath(uid));
+    }
+
+    function isMemberOf(uid, houseId) {
+      return isCurrentMember(uid)
+        && get(memberPath(uid)).data.house_id == houseId;
+    }
+
+    function isMember(houseId) {
+      return signedIn() && isMemberOf(request.auth.uid, houseId);
+    }
+
+    function isOwner(houseId) {
+      return isMember(houseId)
+        && get(memberPath(request.auth.uid)).data.role == 'owner';
+    }
+
+    function isHousemate(uid) {
+      return isCurrentMember(uid)
+        && isCurrentMember(request.auth.uid)
+        && get(memberPath(uid)).data.house_id
+          == get(memberPath(request.auth.uid)).data.house_id;
+    }
+
+    function validProfile(data) {
+      return data.keys().hasOnly([
+          'id', 'display_name', 'avatar_path', 'task_reminders',
+          'bill_alerts', 'house_activity', 'created_at', 'updated_at'
+        ])
+        && data.keys().hasAll([
+          'display_name', 'task_reminders', 'bill_alerts', 'house_activity'
+        ])
+        && (!('id' in data) || data.id is string)
+        && data.display_name is string
+        && data.display_name.size() >= 2
+        && data.display_name.size() <= 60
+        && (!('avatar_path' in data) || data.avatar_path == null || data.avatar_path is string)
+        && data.task_reminders is bool
+        && data.bill_alerts is bool
+        && data.house_activity is bool
+        && (!('created_at' in data) || data.created_at is string)
+        && (!('updated_at' in data) || data.updated_at is string);
+    }
+
+    function validHouse(data) {
+      return data.keys().hasOnly([
+          'id', 'name', 'invite_code', 'currency', 'harmony_score',
+          'created_by', 'created_at', 'updated_at'
+        ])
+        && data.keys().hasAll(['name', 'invite_code', 'currency', 'harmony_score', 'created_by'])
+        && (!('id' in data) || data.id is string)
+        && data.name is string
+        && data.name.size() >= 2
+        && data.name.size() <= 80
+        && data.invite_code is string
+        && data.currency is string
+        && data.currency.size() == 3
+        && data.harmony_score is int
+        && data.harmony_score >= 0
+        && data.harmony_score <= 100
+        && data.created_by is string
+        && (!('created_at' in data) || data.created_at is string)
+        && (!('updated_at' in data) || data.updated_at is string);
+    }
+
+    function validMembership(data) {
+      return data.keys().hasOnly(['house_id', 'role', 'points', 'joined_at', 'invite_code'])
+        && data.keys().hasAll(['house_id', 'role', 'points'])
+        && data.house_id is string
+        && data.role in ['owner', 'member']
+        && data.points is int
+        && data.points >= 0
+        && (!('joined_at' in data) || data.joined_at is string)
+        && (!('invite_code' in data) || data.invite_code is string);
+    }
+
+    function validExpense(data) {
+      return data.keys().hasOnly([
+          'id', 'house_id', 'title', 'description', 'category', 'amount',
+          'paid_by', 'receipt_path', 'expense_date', 'created_by', 'created_at'
+        ])
+        && data.keys().hasAll([
+          'house_id', 'title', 'category', 'amount', 'paid_by',
+          'expense_date', 'created_by'
+        ])
+        && (!('id' in data) || data.id is string)
+        && data.house_id is string
+        && data.title is string
+        && data.title.size() >= 2
+        && data.title.size() <= 100
+        && (!('description' in data) || data.description == null || data.description is string)
+        && data.category in ['electricity', 'water', 'internet', 'grocery', 'rent', 'other']
+        && data.amount is number
+        && data.amount > 0
+        && data.paid_by is string
+        && (!('receipt_path' in data) || data.receipt_path == null || data.receipt_path is string)
+        && data.expense_date is string
+        && data.created_by is string
+        && (!('created_at' in data) || data.created_at is string);
+    }
+
+    function validExpenseSplit(data) {
+      return data.keys().hasOnly([
+          'id', 'expense_id', 'house_id', 'user_id', 'amount', 'is_paid', 'paid_at'
+        ])
+        && data.keys().hasAll(['expense_id', 'house_id', 'user_id', 'amount', 'is_paid'])
+        && (!('id' in data) || data.id is string)
+        && data.expense_id is string
+        && data.house_id is string
+        && data.user_id is string
+        && data.amount is number
+        && data.amount >= 0
+        && data.is_paid is bool
+        && (!('paid_at' in data) || data.paid_at == null || data.paid_at is string);
+    }
+
+    function validTask(data) {
+      return data.keys().hasOnly([
+          'id', 'house_id', 'title', 'description', 'due_at', 'assignment_type',
+          'assigned_to', 'status', 'completion_photo_path', 'completed_at',
+          'created_by', 'created_at', 'assignee', 'overdue_penalty_applied',
+          'due_reminder_sent'
+        ])
+        && data.keys().hasAll([
+          'house_id', 'title', 'due_at', 'assignment_type', 'assigned_to',
+          'status', 'completion_photo_path', 'completed_at', 'created_by'
+        ])
+        && (!('id' in data) || data.id is string)
+        && data.house_id is string
+        && data.title is string
+        && data.title.size() >= 2
+        && data.title.size() <= 100
+        && (!('description' in data) || data.description == null || data.description is string)
+        && data.due_at is string
+        && data.assignment_type in ['manual', 'random', 'rotation']
+        && (data.assigned_to == null || data.assigned_to is string)
+        && data.status in ['pending', 'completed']
+        && (data.completion_photo_path == null || data.completion_photo_path is string)
+        && (data.completed_at == null || data.completed_at is string)
+        && data.created_by is string
+        && (!('created_at' in data) || data.created_at is string)
+        && (!('assignee' in data) || data.assignee is map)
+        && (!('overdue_penalty_applied' in data) || data.overdue_penalty_applied is bool)
+        && (!('due_reminder_sent' in data) || data.due_reminder_sent is bool);
+    }
+
+    function validTaskReaction(data) {
+      return data.keys().hasOnly(['id', 'task_id', 'house_id', 'user_id', 'reaction', 'created_at'])
+        && data.keys().hasAll(['task_id', 'house_id', 'user_id', 'reaction'])
+        && (!('id' in data) || data.id is string)
+        && data.task_id is string
+        && data.house_id is string
+        && data.user_id is string
+        && data.reaction in ['looks_great', 'appreciate', 'thanks']
+        && (!('created_at' in data) || data.created_at is string);
+    }
+
+    function validHarmonyEvent(data) {
+      return data.keys().hasOnly([
+          'id', 'house_id', 'user_id', 'task_id', 'points', 'reason', 'created_at'
+        ])
+        && data.keys().hasAll(['house_id', 'user_id', 'task_id', 'points', 'reason'])
+        && (!('id' in data) || data.id is string)
+        && data.house_id is string
+        && (data.user_id == null || data.user_id is string)
+        && (data.task_id == null || data.task_id is string)
+        && data.points is int
+        && data.points >= -100
+        && data.points <= 100
+        && data.reason is string
+        && data.reason.size() > 0
+        && (!('created_at' in data) || data.created_at is string);
+    }
+
+    function validCelebration(data) {
+      return data.keys().hasOnly([
+          'id', 'house_id', 'title', 'details', 'location', 'starts_at',
+          'created_by', 'created_at'
+        ])
+        && data.keys().hasAll(['house_id', 'title', 'starts_at', 'created_by'])
+        && (!('id' in data) || data.id is string)
+        && data.house_id is string
+        && data.title is string
+        && data.title.size() >= 2
+        && data.title.size() <= 100
+        && (!('details' in data) || data.details == null || data.details is string)
+        && (!('location' in data) || data.location == null || data.location is string)
+        && data.starts_at is string
+        && data.created_by is string
+        && (!('created_at' in data) || data.created_at is string);
+    }
+
+    function validNotification(data) {
+      return data.keys().hasOnly([
+          'id', 'user_id', 'house_id', 'type', 'title', 'body', 'href',
+          'read_at', 'created_at'
+        ])
+        && data.keys().hasAll([
+          'user_id', 'house_id', 'type', 'title', 'body', 'href', 'read_at', 'created_at'
+        ])
+        && (!('id' in data) || data.id is string)
+        && data.user_id is string
+        && data.house_id is string
+        && data.type in ['expense', 'task', 'harmony', 'celebration', 'member']
+        && data.title is string
+        && (data.body == null || data.body is string)
+        && (data.href == null || data.href is string)
+        && (data.read_at == null || data.read_at is string)
+        && data.created_at is string;
+    }
+
+    function canManageExpenseAfter(expenseId, houseId) {
+      let path = /databases/$(database)/documents/expenses/$(expenseId);
+      return existsAfter(path)
+        && getAfter(path).data.house_id == houseId
+        && (getAfter(path).data.created_by == request.auth.uid || isOwner(houseId));
+    }
+
+    function canManageExpense(expenseId, houseId) {
+      let path = /databases/$(database)/documents/expenses/$(expenseId);
+      return exists(path)
+        && get(path).data.house_id == houseId
+        && (get(path).data.created_by == request.auth.uid || isOwner(houseId));
+    }
+
+    function canReactToTask(taskId, houseId) {
+      let path = /databases/$(database)/documents/tasks/$(taskId);
+      return exists(path)
+        && get(path).data.house_id == houseId
+        && get(path).data.status == 'completed'
+        && get(path).data.assigned_to != request.auth.uid
+        && isMember(houseId);
+    }
+
+    function hasAppreciationAward(taskId, houseId) {
+      let awardId = taskId + '_first_appreciation';
+      let path = /databases/$(database)/documents/harmony_events/$(awardId);
+      return exists(path)
+        && get(path).data.house_id == houseId
+        && get(path).data.task_id == taskId
+        && get(path).data.reason == 'first_appreciation'
+        && get(path).data.points == 5;
+    }
+
+    match /profiles/{uid} {
+      allow get, list: if signedIn() && (uid == request.auth.uid || isHousemate(uid));
+      allow create: if signedIn()
+        && uid == request.auth.uid
+        && validProfile(request.resource.data)
+        && (!('id' in request.resource.data) || request.resource.data.id == uid);
+      allow update: if signedIn()
+        && uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'display_name', 'task_reminders', 'bill_alerts', 'house_activity', 'updated_at'
+        ])
+        && validProfile(request.resource.data);
+      // Auth account deletion and profile cleanup are handled together by the server.
+      allow delete: if false;
+    }
+
+    match /houses/{houseId} {
+      allow get, list: if isMember(houseId);
+      allow create: if signedIn()
+        && validHouse(request.resource.data)
+        && request.resource.data.created_by == request.auth.uid
+        && existsAfter(memberPath(request.auth.uid))
+        && getAfter(memberPath(request.auth.uid)).data.house_id == houseId
+        && getAfter(memberPath(request.auth.uid)).data.role == 'owner';
+      allow update: if isOwner(houseId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'invite_code', 'currency', 'updated_at'
+        ])
+        && validHouse(request.resource.data);
+      // Firestore does not cascade deletes across the related collections.
+      allow delete: if false;
+    }
+
+    match /house_members/{uid} {
+      allow get, list: if signedIn()
+        && (uid == request.auth.uid || isMember(resource.data.house_id));
+      allow create: if signedIn()
+        && validMembership(request.resource.data)
+        && exists(/databases/$(database)/documents/profiles/$(uid))
+        && (
+          (uid == request.auth.uid
+            && request.resource.data.role == 'owner'
+            && request.resource.data.points == 0
+            && existsAfter(housePath(request.resource.data.house_id))
+            && getAfter(housePath(request.resource.data.house_id)).data.created_by == request.auth.uid)
+          ||
+          (uid == request.auth.uid
+            && request.resource.data.role == 'member'
+            && request.resource.data.points == 0
+            && 'invite_code' in request.resource.data
+            && exists(/databases/$(database)/documents/invite_codes/$(request.resource.data.invite_code))
+            && get(/databases/$(database)/documents/invite_codes/$(request.resource.data.invite_code)).data.house_id == request.resource.data.house_id)
+          ||
+          (uid != request.auth.uid
+            && request.resource.data.role == 'member'
+            && isOwner(request.resource.data.house_id))
+        );
+      allow update: if signedIn()
+        && uid != request.auth.uid
+        && isOwner(resource.data.house_id)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+        && request.resource.data.role in ['owner', 'member'];
+      allow delete: if signedIn() && uid != request.auth.uid && isOwner(resource.data.house_id);
+    }
+
+    // This lookup collection is an app index derived from houses.invite_code.
+    match /invite_codes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['house_id'])
+        && request.resource.data.house_id is string
+        && (
+          isOwner(request.resource.data.house_id)
+          || (existsAfter(housePath(request.resource.data.house_id))
+            && getAfter(housePath(request.resource.data.house_id)).data.created_by == request.auth.uid
+            && getAfter(housePath(request.resource.data.house_id)).data.invite_code == code)
+        );
+      allow update: if false;
+      allow delete: if signedIn() && isOwner(resource.data.house_id);
+    }
+
+    match /expenses/{expenseId} {
+      allow get, list: if isMember(resource.data.house_id);
+      allow create: if signedIn()
+        && validExpense(request.resource.data)
+        && request.resource.data.created_by == request.auth.uid
+        && isMember(request.resource.data.house_id)
+        && isMemberOf(request.resource.data.paid_by, request.resource.data.house_id);
+      allow update: if isMember(resource.data.house_id)
+        && (resource.data.created_by == request.auth.uid || isOwner(resource.data.house_id))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'description', 'category', 'amount', 'paid_by',
+          'receipt_path', 'expense_date'
+        ])
+        && validExpense(request.resource.data)
+        && isMemberOf(request.resource.data.paid_by, resource.data.house_id);
+      allow delete: if isMember(resource.data.house_id)
+        && (resource.data.created_by == request.auth.uid || isOwner(resource.data.house_id));
+    }
+
+    match /expense_splits/{splitId} {
+      allow get, list: if isMember(resource.data.house_id);
+      allow create: if signedIn()
+        && validExpenseSplit(request.resource.data)
+        && isMember(request.resource.data.house_id)
+        && isMemberOf(request.resource.data.user_id, request.resource.data.house_id)
+        && canManageExpenseAfter(request.resource.data.expense_id, request.resource.data.house_id);
+      allow update: if signedIn()
+        && isMember(resource.data.house_id)
+        && (
+          (resource.data.user_id == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['is_paid', 'paid_at'])
+            && resource.data.is_paid == false
+            && request.resource.data.is_paid == true
+            && request.resource.data.paid_at is string)
+          ||
+          (canManageExpense(resource.data.expense_id, resource.data.house_id)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['amount'])
+            && request.resource.data.amount is number
+            && request.resource.data.amount >= 0)
+        );
+      allow delete: if isMember(resource.data.house_id)
+        && canManageExpense(resource.data.expense_id, resource.data.house_id);
+    }
+
+    match /tasks/{taskId} {
+      allow get, list: if isMember(resource.data.house_id);
+      allow create: if signedIn()
+        && validTask(request.resource.data)
+        && request.resource.data.created_by == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.completion_photo_path == null
+        && request.resource.data.completed_at == null
+        && (!('overdue_penalty_applied' in request.resource.data)
+          || request.resource.data.overdue_penalty_applied == false)
+        && isMember(request.resource.data.house_id)
+        && (request.resource.data.assigned_to == null
+          || isMemberOf(request.resource.data.assigned_to, request.resource.data.house_id));
+      // Completion and overdue changes must use server transactions so points,
+      // harmony_events, and notifications cannot get out of sync.
+      allow update: if isMember(resource.data.house_id)
+        && (resource.data.created_by == request.auth.uid || isOwner(resource.data.house_id))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'description', 'due_at', 'assignment_type', 'assigned_to'
+        ])
+        && validTask(request.resource.data)
+        && (request.resource.data.assigned_to == null
+          || isMemberOf(request.resource.data.assigned_to, resource.data.house_id));
+      allow delete: if isMember(resource.data.house_id)
+        && (resource.data.created_by == request.auth.uid || isOwner(resource.data.house_id));
+    }
+
+    match /task_reactions/{reactionId} {
+      allow get, list: if isMember(resource.data.house_id);
+      // The first reaction is written with its +5 award by the trusted server.
+      // Later changes are allowed only after that award is recorded.
+      allow create: if signedIn()
+        && reactionId == request.resource.data.task_id + '_' + request.auth.uid
+        && validTaskReaction(request.resource.data)
+        && request.resource.data.user_id == request.auth.uid
+        && canReactToTask(request.resource.data.task_id, request.resource.data.house_id)
+        && hasAppreciationAward(request.resource.data.task_id, request.resource.data.house_id);
+      allow update: if signedIn()
+        && resource.data.user_id == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reaction'])
+        && validTaskReaction(request.resource.data)
+        && canReactToTask(resource.data.task_id, resource.data.house_id)
+        && hasAppreciationAward(resource.data.task_id, resource.data.house_id);
+      allow delete: if signedIn()
+        && resource.data.user_id == request.auth.uid
+        && isMember(resource.data.house_id)
+        && hasAppreciationAward(resource.data.task_id, resource.data.house_id);
+    }
+
+    match /harmony_events/{eventId} {
+      allow get, list: if isMember(resource.data.house_id);
+      // This is the immutable points ledger; only trusted server actions write it.
+      allow create, update, delete: if false;
+    }
+
+    match /celebrations/{celebrationId} {
+      allow get, list: if isMember(resource.data.house_id);
+      allow create: if signedIn()
+        && validCelebration(request.resource.data)
+        && request.resource.data.created_by == request.auth.uid
+        && isOwner(request.resource.data.house_id);
+      allow update: if isOwner(resource.data.house_id)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'details', 'location', 'starts_at'
+        ])
+        && validCelebration(request.resource.data);
+      allow delete: if isOwner(resource.data.house_id);
+    }
+
+    match /notifications/{notificationId} {
+      allow get, list: if signedIn() && resource.data.user_id == request.auth.uid;
+      // Notifications are generated by server actions after validating an event.
+      allow create: if false;
+      allow update: if signedIn()
+        && resource.data.user_id == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read_at'])
+        && validNotification(request.resource.data);
+      allow delete: if signedIn() && resource.data.user_id == request.auth.uid;
+    }
+
+    // Every other path is denied unless it receives its own explicit policy.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

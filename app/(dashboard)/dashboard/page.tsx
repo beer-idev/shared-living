@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bell, CheckCircle2, ListChecks, PartyPopper, Plus, Sprout, TrendingDown, Users, WalletCards } from "lucide-react";
 import Link from "next/link";
+import { markNotificationReadAction } from "@/app/actions/notifications";
 import { Avatar } from "@/components/avatar";
 import { PageHeader } from "@/components/page-header";
 import { TreeIllustration } from "@/components/tree-illustration";
@@ -33,8 +34,8 @@ export default async function DashboardPage() {
       <article className="figma-debt-card"><header><h2>Debt summary</h2><Link href="/expenses">View all</Link></header><div>{debts.map((debt, index) => <div key={debt.userId}><Avatar profile={context.members.find((member) => member.user_id === debt.userId)?.profile ?? context.profile} index={index} size="md" /><span><strong>{debt.name}</strong><small>Owes the house</small></span><b>{formatMoney(debt.amount, context.house.currency)}</b><i><i style={{ width: `${Math.max(8, (debt.amount / maxDebt) * 100)}%` }} /></i></div>)}</div></article>
     </section>
     <section className="figma-dashboard__bottom">
-      <article className="dashboard-list"><header><h2>Pending tasks</h2><Link href="/chores">All tasks</Link></header>{pending.slice(0, 4).map((task) => <Link className="dashboard-task" href={`/chores/${task.id}`} key={task.id}><span><CheckCircle2 size={16} /></span><div><strong>{task.title}</strong><small>{task.assignee?.display_name ?? "Unassigned"} · {new Intl.DateTimeFormat("en-GB", { month: "short", day: "numeric" }).format(new Date(task.due_at))}</small></div><em>+10</em></Link>)}</article>
-      <article className="dashboard-list"><header><h2>Notifications</h2><Link href="/notifications">View all</Link></header>{notifications.slice(0, 4).map((item) => <Link className="dashboard-notification" href={item.href || "/notifications"} key={item.id}><Bell size={15} /><span>{item.title}</span></Link>)}</article>
+      <article className="dashboard-list"><header><h2>Pending tasks</h2><Link href="/chores">All tasks</Link></header>{pending.slice(0, 4).map((task) => <Link className="dashboard-task" href={`/chores?task=${task.id}`} key={task.id}><span><CheckCircle2 size={16} /></span><div><strong>{task.title}</strong><small>{task.assignee?.display_name ?? "Unassigned"} · {new Intl.DateTimeFormat("en-GB", { month: "short", day: "numeric" }).format(new Date(task.due_at))}</small></div><em>+10</em></Link>)}</article>
+      <article className="dashboard-list"><header><h2>Notifications</h2><Link href="/notifications">View all</Link></header>{notifications.slice(0, 4).map((item) => <form action={markNotificationReadAction.bind(null, item.id)} key={item.id} className="dashboard-notification-form"><button type="submit" className={`dashboard-notification ${item.read_at ? "is-read" : "is-unread"}`} aria-label={`${item.read_at ? "Open" : "Read and open"} notification: ${item.title}`}><Bell size={15} aria-hidden="true" /><span>{item.title}</span>{!item.read_at && <em>New</em>}</button></form>)}</article>
       <article className="dashboard-list"><header><h2>Recent activity</h2></header>{notifications.slice(0, 4).reverse().map((item) => <p className="dashboard-activity" key={item.id}><i />{item.body || item.title}</p>)}</article>
     </section>
     <section className="mt-5"><Card className="p-6">

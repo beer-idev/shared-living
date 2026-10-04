@@ -26,9 +26,8 @@ export function AppShell({ context, unread, children }: { context: AppContext; u
           </div>
         </div>
       </aside>
-      <header className="mobile-header"><Brand compact /><div className="mobile-header__actions"><MobileMenu unread={unread} /><Link href="/notifications" className="notification-button"><Bell size={19} />{unread > 0 && <span>{unread}</span>}</Link><Link href="/profile" aria-label="Open profile"><Avatar profile={context.profile} size="sm" /></Link></div></header>
-      {context.preview && <div className="setup-ribbon"><strong>Preview mode</strong><span>Connect Supabase to enable saving, authentication and uploads.</span><Link href="/setup">Set up</Link></div>}
-      <main id="main-content" className={`main-content ${context.preview ? "main-content--preview" : ""}`}>{children}</main>
+      <header className="mobile-header"><Brand compact /><div className="mobile-header__actions"><MobileMenu unread={unread} /><Link href="/notifications" className="notification-button" aria-label={`${unread} unread notifications`}><Bell size={19} aria-hidden="true" />{unread > 0 && <span aria-hidden="true">{unread}</span>}</Link><Link href="/profile" aria-label="Open profile"><Avatar profile={context.profile} size="sm" /></Link></div></header>
+      <main id="main-content" className="main-content">{children}</main>
       <MobileNav />
     </div>
   );

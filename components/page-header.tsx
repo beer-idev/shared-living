@@ -14,8 +14,8 @@ export function PageHeader({ eyebrow, title, description, action, actionSlot, un
       </div>
       {(action || actionSlot || unread !== undefined) && <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         {actionSlot}
-        {action && <Button asChild className="min-h-11 shadow-[0_8px_20px_rgba(76,189,91,.18)]"><Link href={action.href}>{Icon && <Icon aria-hidden="true" />}{action.label}</Link></Button>}
-        {unread !== undefined && <Button asChild variant="ghost" size="icon" className="relative size-11" aria-label={`${unread} unread notifications`}><Link href="/notifications"><Bell aria-hidden="true" />{unread > 0 && <span className="absolute right-2 top-2 size-2 rounded-full bg-[#4cbd5b] ring-2 ring-[#f8fafb]" />}</Link></Button>}
+        {action && <Button asChild className={Icon ? "min-h-11 w-11 px-0 shadow-[0_8px_20px_rgba(76,189,91,.18)] sm:w-auto sm:px-4" : "min-h-11 shadow-[0_8px_20px_rgba(76,189,91,.18)]"}><Link href={action.href} aria-label={action.label}>{Icon && <Icon aria-hidden="true" />}{Icon ? <span className="hidden sm:inline">{action.label}</span> : action.label}</Link></Button>}
+        {unread !== undefined && <Button asChild variant="ghost" size="icon" className="relative hidden size-11 sm:inline-flex"><Link href="/notifications" aria-label={`${unread} unread notifications`}><Bell aria-hidden="true" />{unread > 0 && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 grid min-h-5 min-w-5 place-items-center rounded-full bg-[#ee8b16] px-1 text-[10px] font-extrabold leading-none text-white ring-2 ring-[#f8fafb]">{unread}</span>}</Link></Button>}
       </div>}
     </header>
   );

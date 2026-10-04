@@ -13,6 +13,7 @@ export type House = {
   invite_code: string;
   currency: string;
   harmony_score: number;
+  created_at?: string;
 };
 
 export type Member = {
@@ -20,6 +21,7 @@ export type Member = {
   role: "owner" | "member";
   profile: Profile;
   points: number;
+  joined_at?: string;
 };
 
 export type Expense = {
@@ -31,6 +33,7 @@ export type Expense = {
   expense_date: string;
   paid_by: string;
   payer: Profile;
+  receipt_path?: string | null;
   splits?: ExpenseSplit[];
 };
 
@@ -39,6 +42,7 @@ export type ExpenseSplit = {
   user_id: string;
   amount: number;
   is_paid: boolean;
+  paid_at?: string | null;
   profile: Profile;
 };
 
@@ -53,6 +57,9 @@ export type Task = {
   status: "pending" | "completed";
   completion_photo_path: string | null;
   completed_at: string | null;
+  overdue_penalty_applied?: boolean;
+  reaction_counts?: { appreciate: number; thanks: number; looks_great: number };
+  my_reaction?: "appreciate" | "thanks" | "looks_great" | null;
 };
 
 export type Notification = {

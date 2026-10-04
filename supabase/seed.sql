@@ -18,7 +18,7 @@ from auth.users where id in (
 ) on conflict (provider_id, provider) do nothing;
 
 insert into public.houses (id, name, invite_code, currency, harmony_score, created_by, created_at)
-values ('20000000-0000-0000-0000-000000000001','Sunrise House 402','SUNRISE402','THB',82,'10000000-0000-0000-0000-000000000001',now() - interval '6 months')
+values ('20000000-0000-0000-0000-000000000001','Sunrise House 402','SUNRISE402','THB',10,'10000000-0000-0000-0000-000000000001',now() - interval '6 months')
 on conflict (id) do nothing;
 
 insert into public.house_members (house_id, user_id, role, joined_at) values
@@ -49,7 +49,7 @@ insert into public.tasks (id,house_id,title,description,due_at,assignment_type,a
 on conflict (id) do nothing;
 
 insert into public.harmony_events (id,house_id,user_id,task_id,points,reason,created_at) values
-  ('50000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','40000000-0000-0000-0000-000000000003',0,'seed_baseline',now() - interval '45 minutes')
+  ('50000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','40000000-0000-0000-0000-000000000003',10,'task_completed',now() - interval '45 minutes')
 on conflict (id) do nothing;
 
 insert into public.celebrations (id,house_id,title,details,location,starts_at,created_by) values

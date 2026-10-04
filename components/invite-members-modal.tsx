@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, Copy, Link as LinkIcon, UserPlus } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -41,7 +40,6 @@ export function InviteMembersModal({ code, houseName, compact = false }: { code:
         <p className="text-xs leading-5 text-[#718187]" aria-live="polite">{copied ? "Invite link copied to clipboard." : "Anyone with this link can request to join your house."}</p>
       </div>
       <DialogFooter>
-        <Button asChild variant="outline" className="w-full sm:w-auto"><Link href={invitePath}>Preview join page</Link></Button>
         <Button type="button" className="w-full sm:w-auto" onClick={copyInvite}>{copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}{copied ? "Copied" : "Copy link"}</Button>
       </DialogFooter>
     </DialogContent>

@@ -30,11 +30,4 @@ export function relativeTime(value: string) {
   return formatter.format(Math.round(hours / 24), "day");
 }
 
-export function harmonyLevel(score: number) {
-  if (score >= 92) return { level: 6, name: "Dream House" };
-  if (score >= 78) return { level: 5, name: "Big Tree" };
-  if (score >= 60) return { level: 4, name: "Healthy Tree" };
-  if (score >= 40) return { level: 3, name: "Young Tree" };
-  if (score >= 20) return { level: 2, name: "Small Plant" };
-  return { level: 1, name: "Seed" };
-}
+export { harmonyLevel } from "./harmony";
