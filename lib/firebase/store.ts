@@ -9,8 +9,12 @@ export function documentData<T>(snapshot: FirebaseFirestore.DocumentSnapshot): T
 
 export async function houseMembers(houseId: string): Promise<Member[]> {
   const rows = await db().collection("house_members").where("house_id", "==", houseId).get();
-  return Promise.all(rows.docs.map(async (row) => {
-    const profile = documentData<Profile>(await db().collection("profiles").doc(row.id).get()) ?? {
+  const database = db();
+  const profileRefs = rows.docs.map((row) => database.collection("profiles").doc(row.id));
+  const profiles = profileRefs.length ? await database.getAll(...profileRefs) : [];
+  const profilesById = new Map(profiles.map((snapshot) => [snapshot.id, documentData<Profile>(snapshot)]));
+  return rows.docs.map((row) => {
+    const profile = profilesById.get(row.id) ?? {
       id: row.id,
       display_name: "Housemate",
       avatar_path: null,
@@ -25,7 +29,7 @@ export async function houseMembers(houseId: string): Promise<Member[]> {
       points: Number(row.get("points") ?? 0),
       joined_at: row.get("joined_at") as string | undefined,
     } as Member;
-  }));
+  });
 }
 
 export function notificationData(userId: string, notification: Omit<Notification, "id" | "read_at" | "created_at">) {

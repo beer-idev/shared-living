@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { currentUser, db, isFirebaseConfigured } from "./firebase/server";
 import { documentData, houseMembers } from "./firebase/store";
 import { formatDateInput } from "./format";
-import { harmonyScoreFromLedger } from "./harmony";
 import type { AppContext, Celebration, Expense, ExpenseSplit, ExpenseSummary, House, HouseDebt, MemberStats, Notification, Profile, Task } from "./types";
 
 type StoredExpense = Omit<Expense, "payer" | "splits"> & { house_id: string };
@@ -23,28 +22,22 @@ export const getAppContext = cache(async (): Promise<AppContext> => {
   const membership = await db().collection("house_members").doc(user.uid).get();
   if (!membership.exists) redirect("/onboarding");
   const houseId = String(membership.get("house_id"));
-  const [house, profile, members, harmonyEvents, harmonyTasks] = await Promise.all([
+  const [house, profile, members] = await Promise.all([
     db().collection("houses").doc(houseId).get(),
     db().collection("profiles").doc(user.uid).get(),
     houseMembers(houseId),
-    db().collection("harmony_events").where("house_id", "==", houseId).get(),
-    db().collection("tasks").where("house_id", "==", houseId).get(),
   ]);
   if (!house.exists) redirect("/onboarding");
   const storedHouse = documentData<House>(house)!;
-  const harmonyScore = harmonyScoreFromLedger(
-    harmonyEvents.docs.map((row) => ({ taskId: row.get("task_id") as string | null, points: Number(row.get("points") ?? 0), reason: String(row.get("reason") ?? "") })),
-    harmonyTasks.docs.map((row) => ({ id: row.id, status: String(row.get("status") ?? "pending") })),
-  );
   return {
     preview: false, userId: user.uid, email: user.email ?? "",
-    house: { ...storedHouse, harmony_score: harmonyScore },
+    house: storedHouse,
     profile: documentData<Profile>(profile) ?? { id: user.uid, display_name: user.name ?? user.email ?? "Housemate", avatar_path: null, task_reminders: true, bill_alerts: true, house_activity: true },
     members,
   };
 });
 
-export async function getExpenses(): Promise<Expense[]> {
+export const getExpenses = cache(async (): Promise<Expense[]> => {
   const context = await getAppContext();
   const [expenseRows, splitRows] = await Promise.all([
     db().collection("expenses").where("house_id", "==", context.house.id).get(),
@@ -67,13 +60,13 @@ export async function getExpenses(): Promise<Expense[]> {
     }));
     return { ...expense, payer: profiles.get(expense.paid_by) ?? historicalProfile(expense.paid_by), splits };
   }).sort((a, b) => b.expense_date.localeCompare(a.expense_date));
-}
+});
 
-export async function getExpense(id: string): Promise<Expense | null> {
+export const getExpense = cache(async (id: string): Promise<Expense | null> => {
   return (await getExpenses()).find((expense) => expense.id === id) ?? null;
-}
+});
 
-export async function getTasks(): Promise<Task[]> {
+export const getTasks = cache(async (): Promise<Task[]> => {
   const context = await getAppContext();
   const [taskRows, reactionRows] = await Promise.all([
     db().collection("tasks").where("house_id", "==", context.house.id).get(),
@@ -99,19 +92,19 @@ export async function getTasks(): Promise<Task[]> {
       my_reaction: reactions.find((reaction) => reaction.user_id === context.userId)?.reaction ?? null,
     };
   }).sort((a, b) => a.due_at.localeCompare(b.due_at));
-}
+});
 
-export async function getTask(id: string): Promise<Task | null> {
+export const getTask = cache(async (id: string): Promise<Task | null> => {
   return (await getTasks()).find((task) => task.id === id) ?? null;
-}
+});
 
-export async function getNotifications(): Promise<Notification[]> {
+export const getNotifications = cache(async (): Promise<Notification[]> => {
   const context = await getAppContext();
   const rows = await db().collection("notifications").where("user_id", "==", context.userId).get();
   return rows.docs.map((row) => documentData<Notification>(row)!).sort((a, b) => b.created_at.localeCompare(a.created_at));
-}
+});
 
-export async function getExpenseSummary(): Promise<ExpenseSummary> {
+export const getExpenseSummary = cache(async (): Promise<ExpenseSummary> => {
   const context = await getAppContext();
   const expenses = (await getExpenses()).filter((expense) => expense.expense_date.slice(0, 7) === formatDateInput().slice(0, 7));
   const splits = expenses.flatMap((expense) => (expense.splits ?? []).map((split) => ({ ...split, paidBy: expense.paid_by })));
@@ -119,9 +112,9 @@ export async function getExpenseSummary(): Promise<ExpenseSummary> {
   const owed = unpaid.filter((split) => split.user_id === context.userId);
   const receivable = unpaid.filter((split) => split.paidBy === context.userId && split.user_id !== context.userId);
   return { total: expenses.reduce((sum, expense) => sum + expense.amount, 0), owed: owed.reduce((sum, split) => sum + split.amount, 0), owedCount: owed.length, receivable: receivable.reduce((sum, split) => sum + split.amount, 0), receivableCount: new Set(receivable.map((split) => split.user_id)).size, settledPercent: splits.length ? Math.round((splits.filter((split) => split.is_paid).length / splits.length) * 100) : 100 };
-}
+});
 
-export async function getMemberStats(): Promise<MemberStats> {
+export const getMemberStats = cache(async (): Promise<MemberStats> => {
   const context = await getAppContext();
   const [tasks, expenses] = await Promise.all([getTasks(), getExpenses()]);
   return Object.fromEntries(context.members.map((member) => [member.user_id, {
@@ -129,15 +122,15 @@ export async function getMemberStats(): Promise<MemberStats> {
     bills: expenses.filter((expense) => expense.splits?.some((split) => split.user_id === member.user_id && split.is_paid)).length,
     thanks: tasks.reduce((count, task) => count + (task.assigned_to === member.user_id ? Object.values(task.reaction_counts ?? {}).reduce((sum, value) => sum + value, 0) : 0), 0),
   }]));
-}
+});
 
-export async function getHouseDebts(): Promise<HouseDebt[]> {
+export const getHouseDebts = cache(async (): Promise<HouseDebt[]> => {
   const [context, expenses] = await Promise.all([getAppContext(), getExpenses()]);
   return context.members.map((member) => ({ userId: member.user_id, name: member.profile.display_name, amount: expenses.flatMap((expense) => expense.splits ?? []).filter((split) => split.user_id === member.user_id && !split.is_paid).reduce((sum, split) => sum + split.amount, 0) }));
-}
+});
 
-export async function getUpcomingCelebration(): Promise<Celebration | null> {
+export const getUpcomingCelebration = cache(async (): Promise<Celebration | null> => {
   const context = await getAppContext();
   const rows = await db().collection("celebrations").where("house_id", "==", context.house.id).get();
   return rows.docs.map((row) => documentData<Celebration>(row)!).filter((item) => item.starts_at >= new Date().toISOString()).sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0] ?? null;
-}
+});
