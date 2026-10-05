@@ -1176,7 +1176,7 @@ pre { overflow-x: auto; margin: 10px 0 0; padding: 15px; color: #dbeee3; backgro
 .figma-debt-card > div > div { grid-template-columns: 40px 1fr auto; min-height: 89px; gap: 12px; padding: 13px 15px; background: #fff; border: 1px solid #dde5e8; border-radius: 22px; }
 .figma-debt-card > div > div > i { grid-column: 1 / -1; display: block; height: 6px; margin-top: -5px; overflow: hidden; background: #eef4f4; border-radius: 999px; }
 .figma-debt-card > div > div > i > i { display: block; height: 100%; background: #79c888; border-radius: inherit; }
-.figma-dashboard__bottom { gap: 20px; }
+.figma-dashboard__bottom { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 20px; }
 .figma-dashboard__bottom article { min-height: 300px; padding: 23px; }
 .dashboard-list header { display: flex; align-items: center; justify-content: space-between; }
 .dashboard-list header a { min-height: 0; margin: 0; padding: 0; color: var(--mint-strong); background: transparent; font-size: 12px; }
@@ -1191,10 +1191,12 @@ pre { overflow-x: auto; margin: 10px 0 0; padding: 15px; color: #dbeee3; backgro
 .dashboard-notification:hover { color: var(--ink); background: #f3f8f8; }
 .dashboard-notification:focus-visible { outline: 2px solid rgba(76,189,91,.5); outline-offset: 2px; }
 .dashboard-notification.is-unread { color: var(--ink); font-weight: 700; }
+.dashboard-notification > span { min-width: 0; }
+.dashboard-notification strong, .dashboard-notification small { display: block; }
+.dashboard-notification strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-notification small { margin-top: 2px; overflow: hidden; color: var(--muted); font-size: 9px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-notification em { margin-left: auto; padding: 3px 7px; color: #216d32; background: #d6f4da; border-radius: 999px; font-size: 9px; font-style: normal; }
 .dashboard-notification svg { flex: 0 0 auto; color: var(--mint-strong); }
-.dashboard-activity { display: flex; align-items: flex-start; gap: 10px; margin: 20px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
-.dashboard-activity i { flex: 0 0 auto; width: 8px; height: 8px; margin-top: 4px; background: var(--mint-strong); border-radius: 50%; }
 @media (max-width: 1179px) { .sidebar { width: 225px; } .main-content { margin-left: 225px; } .setup-ribbon { left: 225px; } .figma-dashboard__middle { grid-template-columns: 1fr; } }
 @media (max-width: 860px) { .main-content { padding: 0 18px 82px; } .page-header { margin-right: -18px; margin-left: -18px; padding-inline: 18px; } .figma-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
@@ -1270,6 +1272,9 @@ pre { overflow-x: auto; margin: 10px 0 0; padding: 15px; color: #dbeee3; backgro
 .figma-dashboard__bottom .dashboard-list { display: flex; flex-direction: column; align-items: stretch; align-content: flex-start; }
 .figma-dashboard__bottom .dashboard-list:first-child .dashboard-task { display: grid; width: 100%; flex: 0 0 auto; grid-column: 1 / -1; }
 .figma-dashboard__bottom .dashboard-task { grid-template-columns: 32px minmax(0, 1fr) auto; }
+.figma-dashboard__bottom .dashboard-list--notifications { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: flex-start; column-gap: 14px; }
+.dashboard-list--notifications header { grid-column: 1 / -1; }
+@media (max-width: 860px) { .figma-dashboard__bottom .dashboard-list--notifications { grid-template-columns: minmax(0, 1fr); } }
 
 /* Native prototype dialogs still used by legacy flows should share the centered dialog contract. */
 dialog.prototype-dialog { position: fixed; inset: 50% auto auto 50%; margin: 0; transform: translate(-50%, -50%); }

@@ -32,14 +32,20 @@ export function notificationData(userId: string, notification: Omit<Notification
   return { ...notification, user_id: userId, read_at: null, created_at: new Date().toISOString() };
 }
 
+export function queueNotifications(batch: FirebaseFirestore.WriteBatch, userIds: string[], notification: Omit<Notification, "id" | "read_at" | "created_at">) {
+  const uniqueIds = [...new Set(userIds.filter(Boolean))];
+  const database = db();
+  for (const uid of uniqueIds) {
+    batch.set(database.collection("notifications").doc(), notificationData(uid, notification));
+  }
+}
+
 export async function notifyUsers(userIds: string[], notification: Omit<Notification, "id" | "read_at" | "created_at">) {
   const uniqueIds = [...new Set(userIds.filter(Boolean))];
   if (!uniqueIds.length) return;
   const database = db();
   const batch = database.batch();
-  for (const uid of uniqueIds) {
-    batch.set(database.collection("notifications").doc(), notificationData(uid, notification));
-  }
+  queueNotifications(batch, uniqueIds, notification);
   await batch.commit();
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, CheckCircle2, Heart, Sparkles, ThumbsUp, X } from "lucide-react";
+import { Camera, CheckCircle2, Heart, LoaderCircle, Sparkles, ThumbsUp, X } from "lucide-react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { useState } from "react";
 import { reactToTaskAction } from "@/app/actions/tasks";
@@ -27,7 +27,7 @@ const fallbackProfile = { id: "", display_name: "Unassigned", avatar_path: null,
 
 export function TaskDetailModal({ task, currentUserId, index = 0, completeAction, canComplete = false, children, autoOpen = false, showTrigger = true, successMode = false }: TaskDetailModalProps) {
   const [open, setOpen] = useState(autoOpen);
-  const [submitting, setSubmitting] = useState(false);
+  const [completionStatus, setCompletionStatus] = useState<"idle" | "uploading" | "saving">("idle");
   const [uploadError, setUploadError] = useState("");
   const [proofName, setProofName] = useState("");
   const assignee = task.assignee ?? fallbackProfile;
@@ -48,20 +48,21 @@ export function TaskDetailModal({ task, currentUserId, index = 0, completeAction
     const data = new FormData(event.currentTarget);
     const proof = data.get("proof");
     data.delete("proof");
-    setSubmitting(true);
+    setCompletionStatus("uploading");
     setUploadError("");
     try {
       if (!(proof instanceof File)) throw new Error("Choose a proof photo");
       data.set("proofUrl", await uploadPhoto(proof, `task-proofs/${task.id}/${currentUserId}`));
+      setCompletionStatus("saving");
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Photo could not be uploaded");
-      setSubmitting(false);
+      setCompletionStatus("idle");
       return;
     }
     // Let Next.js handle redirect() from the server action instead of treating
     // it like an upload failure.
     await completeAction(data);
-    setSubmitting(false);
+    setCompletionStatus("idle");
   }
 
   return <Dialog open={open} onOpenChange={setOpen}>
@@ -85,7 +86,7 @@ export function TaskDetailModal({ task, currentUserId, index = 0, completeAction
         <input type="hidden" name="returnTo" value="/chores" />
         <label className="task-proof-upload"><Camera size={18} /><strong>{proofName || "Upload proof photo"}</strong><span>{proofName ? "Photo selected · choose another if needed" : "Housemates love before / after shots"}</span><input name="proof" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setProofName(event.target.files?.[0]?.name ?? "")} required /></label>
         {uploadError && <p role="alert" className="text-sm text-[#b42334]">{uploadError}</p>}
-        <button type="submit" disabled={submitting} className="button button--primary button--wide"><CheckCircle2 size={16} /> {submitting ? "Uploading photo…" : "Complete task"}</button>
+        <button type="submit" disabled={completionStatus !== "idle"} aria-disabled={completionStatus !== "idle"} className="button button--primary button--wide">{completionStatus === "idle" ? <CheckCircle2 size={16} /> : <LoaderCircle className="spin" size={16} aria-hidden="true" />} {completionStatus === "uploading" ? "Uploading photo…" : completionStatus === "saving" ? "Completing task…" : "Complete task"}</button>
       </form> : <div className="task-detail-dialog__notice"><X size={16} /> This task is assigned to {assignee.display_name}.</div>}
     </DialogContent>
   </Dialog>;

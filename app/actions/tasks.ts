@@ -7,7 +7,7 @@ import { z } from "zod";
 import { getAppContext } from "@/lib/data";
 import { verifiedImageUrl } from "@/lib/firebase/blob";
 import { db } from "@/lib/firebase/server";
-import { notifyUsers } from "@/lib/firebase/store";
+import { notificationData, queueNotifications } from "@/lib/firebase/store";
 import { harmonyLevel } from "@/lib/format";
 import { harmonyScoreFromLedger } from "@/lib/harmony";
 
@@ -24,14 +24,8 @@ function choresPath(taskId?: string) {
 }
 
 function refreshTaskViews(taskId?: string) {
-  revalidatePath("/chores");
+  revalidatePath("/(dashboard)", "layout");
   if (taskId) revalidatePath(`/chores/${taskId}`);
-  revalidatePath("/dashboard");
-  revalidatePath("/members");
-  revalidatePath("/profile");
-  revalidatePath("/harmony");
-  revalidatePath("/notifications");
-  revalidatePath("/", "layout");
 }
 
 export async function createTaskAction(formData: FormData) {
@@ -58,7 +52,8 @@ export async function createTaskAction(formData: FormData) {
   const database = db();
   const ref = database.collection("tasks").doc();
   const createdAt = new Date().toISOString();
-  await ref.set({
+  const batch = database.batch();
+  batch.set(ref, {
     house_id: context.house.id,
     title: parsed.data.title,
     description: parsed.data.description || null,
@@ -74,12 +69,13 @@ export async function createTaskAction(formData: FormData) {
     due_reminder_sent: false,
   });
 
-  await notifyUsers([assignedTo], {
+  batch.set(database.collection("notifications").doc(), notificationData(assignedTo, {
     type: "task",
     title: "A new task was assigned to you",
     body: parsed.data.title,
     href: choresPath(ref.id),
-  });
+  }));
+  await batch.commit();
 
   refreshTaskViews(ref.id);
   redirect("/chores?created=1");
@@ -154,8 +150,12 @@ export async function completeTaskAction(formData: FormData) {
 
   if (!result) redirect(`${choresPath(taskId)}&error=Task+could+not+be+completed`);
   const completed = result as NonNullable<typeof result>;
-  await notifyUsers(
-    context.members.filter((member) => member.user_id !== context.userId).map((member) => member.user_id),
+  const levelUp = harmonyLevel(completed.nextScore).level > harmonyLevel(completed.previousScore).level;
+  const notificationBatch = database.batch();
+  const completionRecipients = context.members.filter((member) => member.user_id !== context.userId).map((member) => member.user_id);
+  queueNotifications(
+    notificationBatch,
+    completionRecipients,
     {
       type: "task",
       title: "A housemate completed a task",
@@ -163,17 +163,16 @@ export async function completeTaskAction(formData: FormData) {
       href: choresPath(taskId),
     },
   );
-
-  const levelUp = harmonyLevel(completed.nextScore).level > harmonyLevel(completed.previousScore).level;
   if (levelUp) {
     const reached = harmonyLevel(completed.nextScore);
-    await notifyUsers(context.members.map((member) => member.user_id), {
+    queueNotifications(notificationBatch, context.members.map((member) => member.user_id), {
       type: "harmony",
       title: `Your house reached ${reached.name}`,
       body: `Level ${reached.level} is ready to celebrate.`,
       href: "/harmony#celebration",
     });
   }
+  if (completionRecipients.length || levelUp) await notificationBatch.commit();
   refreshTaskViews(taskId);
   redirect(`/chores?completed=1&task=${encodeURIComponent(taskId)}${levelUp ? "&levelUp=1" : ""}`);
 }
@@ -246,7 +245,8 @@ export async function reactToTaskAction(formData: FormData) {
   if (!result) redirect(`${choresPath(taskId)}&error=Reaction+could+not+be+saved`);
   const savedReaction = result as NonNullable<typeof result>;
   const reactionLabel = reaction.data === "looks_great" ? "Looks great" : reaction.data === "appreciate" ? "Appreciate" : "Thanks";
-  await notifyUsers([savedReaction.assigneeId], {
+  const notificationBatch = database.batch();
+  queueNotifications(notificationBatch, [savedReaction.assigneeId], {
     type: "task",
     title: savedReaction.bonus ? "You received +5 bonus points" : "A housemate reacted to your task",
     body: `${context.profile.display_name}: ${reactionLabel} · ${savedReaction.taskTitle}`,
@@ -256,13 +256,14 @@ export async function reactToTaskAction(formData: FormData) {
   const levelUp = harmonyLevel(savedReaction.nextScore).level > harmonyLevel(savedReaction.previousScore).level;
   if (levelUp) {
     const reached = harmonyLevel(savedReaction.nextScore);
-    await notifyUsers(context.members.map((member) => member.user_id), {
+    queueNotifications(notificationBatch, context.members.map((member) => member.user_id), {
       type: "harmony",
       title: `Your house reached ${reached.name}`,
       body: `Level ${reached.level} is ready to celebrate.`,
       href: "/harmony#celebration",
     });
   }
+  await notificationBatch.commit();
   refreshTaskViews(taskId);
   redirect(`/chores?task=${encodeURIComponent(taskId)}&reacted=1${savedReaction.bonus ? "&bonus=1" : ""}${levelUp ? "&levelUp=1" : ""}`);
 }

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { getAppContext } from "@/lib/data";
 import { verifiedImageUrl } from "@/lib/firebase/blob";
 import { db } from "@/lib/firebase/server";
-import { notifyUsers } from "@/lib/firebase/store";
+import { notifyUsers, queueNotifications } from "@/lib/firebase/store";
 
 const schema = z.object({
   title: z.string().trim().min(2).max(100),
@@ -18,13 +18,8 @@ const schema = z.object({
 });
 
 function refreshExpenseViews(expenseId?: string) {
-  revalidatePath("/expenses");
+  revalidatePath("/(dashboard)", "layout");
   if (expenseId) revalidatePath(`/expenses/${expenseId}`);
-  revalidatePath("/dashboard");
-  revalidatePath("/profile");
-  revalidatePath("/members");
-  revalidatePath("/notifications");
-  revalidatePath("/", "layout");
 }
 
 export async function createExpenseAction(formData: FormData) {
@@ -84,24 +79,21 @@ export async function createExpenseAction(formData: FormData) {
       created_at: createdAt,
     });
   }
-  await batch.commit();
-
-  await notifyUsers(context.members.map((member) => member.user_id), {
-    type: "expense",
-    title: "A new shared expense was added",
-    body: `${parsed.data.title} · ${(cents / 100).toFixed(2)} ${context.house.currency}`,
-    href: `/expenses/${expenseRef.id}`,
-  });
-
-  const unpaidParticipants = splits.filter((split) => !split.is_paid);
-  for (const split of unpaidParticipants) {
-    await notifyUsers([split.user_id], {
+  for (const member of context.members) {
+    const split = splits.find((item) => item.user_id === member.user_id);
+    queueNotifications(batch, [member.user_id], split && !split.is_paid ? {
       type: "expense",
       title: "A shared expense needs payment",
       body: `${parsed.data.title} · ${split.amount.toFixed(2)} ${context.house.currency}`,
       href: `/expenses/${expenseRef.id}`,
+    } : {
+      type: "expense",
+      title: "A new shared expense was added",
+      body: `${parsed.data.title} · ${(cents / 100).toFixed(2)} ${context.house.currency}`,
+      href: `/expenses/${expenseRef.id}`,
     });
   }
+  await batch.commit();
 
   refreshExpenseViews(expenseRef.id);
   redirect(`/expenses/${expenseRef.id}?created=1`);

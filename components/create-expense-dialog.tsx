@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ImageUp, Plus } from "lucide-react";
+import { Check, ImageUp, LoaderCircle, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import { createExpenseAction } from "@/app/actions/expenses";
@@ -19,7 +19,7 @@ export function CreateExpenseDialog({ members, currentUserId, currency, defaultD
   const [amount, setAmount] = useState("");
   const [selected, setSelected] = useState(() => members.map((member) => member.user_id));
   const [paidBy, setPaidBy] = useState(currentUserId);
-  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<"idle" | "uploading" | "saving">("idle");
   const [uploadError, setUploadError] = useState("");
   const [receiptName, setReceiptName] = useState("");
   const perPerson = useMemo(() => selected.length && Number(amount) > 0 ? Number(amount) / selected.length : 0, [amount, selected.length]);
@@ -30,19 +30,22 @@ export function CreateExpenseDialog({ members, currentUserId, currency, defaultD
     const data = new FormData(event.currentTarget);
     const receipt = data.get("receipt");
     data.delete("receipt");
-    setSaving(true);
+    setStatus(receipt instanceof File && receipt.size ? "uploading" : "saving");
     setUploadError("");
     try {
-      if (receipt instanceof File && receipt.size) data.set("receiptUrl", await uploadPhoto(receipt, `expense-receipts/new/${currentUserId}`));
+      if (receipt instanceof File && receipt.size) {
+        data.set("receiptUrl", await uploadPhoto(receipt, `expense-receipts/new/${currentUserId}`));
+        setStatus("saving");
+      }
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Could not upload receipt");
-      setSaving(false);
+      setStatus("idle");
       return;
     }
     // Keep the server action outside the upload catch. Next.js redirects are
     // implemented as control-flow errors and must be allowed to propagate.
     await createExpenseAction(data);
-    setSaving(false);
+    setStatus("idle");
   }
 
   return <Dialog defaultOpen={defaultOpen} onOpenChange={(open) => { if (!open && defaultOpen) router.push("/expenses"); }}>
@@ -77,7 +80,7 @@ export function CreateExpenseDialog({ members, currentUserId, currency, defaultD
         </label>
         <DialogFooter>
           <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
-          <Button type="submit" className="w-full sm:w-auto" disabled={saving}>{saving ? "Saving expense…" : "Save expense"}</Button>
+          <Button type="submit" className="w-full sm:w-auto" disabled={status !== "idle"} aria-disabled={status !== "idle"}>{status !== "idle" && <LoaderCircle className="spin" aria-hidden="true" />}{status === "uploading" ? "Uploading receipt…" : status === "saving" ? "Saving expense…" : "Save expense"}</Button>
         </DialogFooter>
       </form>
     </DialogContent>
